@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>図解プレビューア</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Mermaid.js -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    
+    <!-- Panzoom (拡大縮小・移動用ライブラリ) -->
+    <script src="https://unpkg.com/panzoom@9.4.0/dist/panzoom.min.js"></script>
+
+    <style>
+        /* 方眼紙風の背景パターン */
+        .bg-grid {
+            background-color: #f8fafc;
+            background-size: 20px 20px;
+            background-image: 
+                linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+                linear-gradient(to bottom, #e2e8f0 1px, transparent 1px);
+        }
+        
+        /* プレビューエリア内の要素がはみ出ないようにする */
+        #preview-wrapper {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        #preview-content {
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100%;
+        }
+
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-white text-gray-800">
+
+    <!-- 左側：エディタエリア (幅を狭く設定) -->
+    <div class="w-full md:w-1/4 lg:w-1/5 h-1/3 md:h-full border-b md:border-r border-gray-200 flex flex-col bg-gray-50 shadow-sm z-10">
+        
+        <!-- ヘッダー -->
+        <div class="flex items-center justify-between p-3 border-b border-gray-200 bg-white">
+            <h1 class="font-bold text-sm text-gray-700 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
+                コード入力
+            </h1>
+            
+            <!-- クリアボタン -->
+            <button id="clear-btn" class="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors" title="クリア">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
+        </div>
+
+        <!-- 状態表示バッジ -->
+        <div class="px-3 py-1.5 flex justify-between items-center text-xs text-gray-500 bg-white border-b border-gray-100">
+            <span>フォーマット: <span id="format-badge" class="font-semibold text-blue-600">自動判別</span></span>
+            <span id="status-text" class="text-green-600 hidden">✓ 更新完了</span>
+        </div>
+
+        <!-- テキストエリア -->
+        <textarea id="code-input" class="w-full flex-1 p-3 text-sm font-mono resize-none focus:outline-none focus:ring-inset focus:ring-2 focus:ring-blue-400 bg-gray-50" placeholder="ここに Mermaid, SVG, HTML のコード（または Markdownの ``` コードブロック）を貼り付けてください..."></textarea>
+    </div>
+
+    <!-- 右側：プレビューエリア (幅を広く設定) -->
+    <div class="w-full md:w-3/4 lg:w-4/5 h-2/3 md:h-full relative bg-grid flex flex-col">
+        
+        <!-- 操作ヒント -->
+        <div class="absolute top-4 right-4 z-20 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-md shadow-sm border border-gray-200 text-xs text-gray-500 flex gap-4 pointer-events-none">
+            <span class="flex items-center gap-1">
+                <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                ホイールで拡大縮小
+            </span>
+            <span class="flex items-center gap-1">
+                <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3"/><path d="M9 5l3-3 3 3"/><path d="M19 9l3 3-3 3"/><path d="M9 19l3 3 3-3"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+                ドラッグで移動
+            </span>
+        </div>
+
+        <!-- コントロールボタン -->
+        <div class="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
+            <button id="zoom-in-btn" class="bg-white p-2 rounded-full shadow border border-gray-200 hover:bg-gray-50 text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <button id="zoom-reset-btn" class="bg-white p-2 rounded-full shadow border border-gray-200 hover:bg-gray-50 text-gray-700" title="リセット">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+            <button id="zoom-out-btn" class="bg-white p-2 rounded-full shadow border border-gray-200 hover:bg-gray-50 text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+        </div>
+
+        <!-- ダウンロードボタン (初期状態は非表示) -->
+        <button id="download-svg-btn" class="absolute bottom-4 right-20 z-20 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2 hidden transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            SVG保存
+        </button>
+
+        <!-- 描画エリア -->
+        <div id="preview-wrapper">
+            <div id="preview-content">
+                <!-- ここにレンダリングされた図解が入ります -->
+                <div class="text-gray-400 flex flex-col items-center gap-4 mt-20 opacity-50">
+                    <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <p>プレビュー待ち...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mermaidの初期設定
+        mermaid.initialize({ 
+            startOnLoad: false, 
+            theme: 'default',
+            securityLevel: 'loose' // HTMLタグなどを許容
+        });
+
+        // DOM要素の取得
+        const codeInput = document.getElementById('code-input');
+        const clearBtn = document.getElementById('clear-btn');
+        const previewContent = document.getElementById('preview-content');
+        const formatBadge = document.getElementById('format-badge');
+        const statusText = document.getElementById('status-text');
+        const downloadSvgBtn = document.getElementById('download-svg-btn');
+        
+        // Panzoomインスタンス
+        let pzInstance = null;
+        let renderTimeout = null;
+
+        // Panzoomの初期化・再設定
+        function initPanzoom() {
+            if (pzInstance) {
+                pzInstance.dispose();
+            }
+            
+            // プレビューコンテナの最初の子要素（SVG等）を操作対象にする
+            const target = previewContent.firstElementChild || previewContent;
+            
+            pzInstance = panzoom(target, {
+                maxZoom: 5,
+                minZoom: 0.1,
+                bounds: true,
+                boundsPadding: 0.1,
+                smoothScroll: false // ホイールの挙動を自然にする
+            });
+        }
+
+        // ズームコントロールボタンのイベント
+        document.getElementById('zoom-in-btn').addEventListener('click', () => {
+            if(pzInstance) pzInstance.smoothZoom(window.innerWidth / 2, window.innerHeight / 2, 1.5);
+        });
+        document.getElementById('zoom-out-btn').addEventListener('click', () => {
+            if(pzInstance) pzInstance.smoothZoom(window.innerWidth / 2, window.innerHeight / 2, 0.75);
+        });
+        document.getElementById('zoom-reset-btn').addEventListener('click', () => {
+            if(pzInstance) {
+                pzInstance.moveTo(0, 0);
+                pzInstance.zoomAbs(0, 0, 1);
+            }
+        });
+
+        // テキストのフォーマットを判別するロジック
+        function detectFormatAndClean(text) {
+            let content = text.trim();
+            if (!content) return { type: 'empty', content: '' };
+
+            // Markdownのコードブロック記法 (```mermaid ... ``` など) を除去
+            const mdMatch = content.match(/^```(\w+)?\n([\s\S]*?)\n```$/);
+            if (mdMatch) {
+                const lang = (mdMatch[1] || '').toLowerCase();
+                content = mdMatch[2].trim();
+                if (lang === 'mermaid') return { type: 'mermaid', content };
+                if (lang === 'html' || lang === 'xml' || lang === 'svg') {
+                    if (content.toLowerCase().startsWith('<svg')) return { type: 'svg', content };
+                    return { type: 'html', content };
+                }
+            }
+
+            // 先頭の文字列から推測
+            const lowerContent = content.toLowerCase();
+            if (lowerContent.startsWith('<svg')) {
+                return { type: 'svg', content };
+            } else if (
+                content.startsWith('graph ') || 
+                content.startsWith('pie ') || 
+                content.startsWith('sequenceDiagram') || 
+                content.startsWith('gantt') || 
+                content.startsWith('classDiagram') || 
+                content.startsWith('stateDiagram') || 
+                content.startsWith('erDiagram') || 
+                content.startsWith('journey') || 
+                content.startsWith('mindmap') || 
+                content.startsWith('timeline') ||
+                content.startsWith('flowchart ')
+            ) {
+                return { type: 'mermaid', content };
+            } else if (lowerContent.startsWith('<div') || lowerContent.startsWith('<table') || lowerContent.startsWith('<h')) {
+                return { type: 'html', content };
+            }
+
+            // デフォルトはテキストとして扱うが、念のためmermaidを試す
+            return { type: 'unknown', content };
+        }
+
+        // プレビューの描画処理
+        async function renderPreview(text) {
+            const { type, content } = detectFormatAndClean(text);
+
+            // 描画開始時にダウンロードボタンを隠す
+            downloadSvgBtn.classList.add('hidden');
+
+            if (type === 'empty') {
+                previewContent.innerHTML = `
+                    <div class="text-gray-400 flex flex-col items-center gap-4 mt-20 opacity-50">
+                        <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <p>プレビュー待ち...</p>
+                    </div>`;
+                formatBadge.textContent = '自動判別';
+                if (pzInstance) pzInstance.dispose();
+                return;
+            }
+
+            formatBadge.textContent = type.toUpperCase();
+            statusText.classList.remove('hidden');
+            setTimeout(() => statusText.classList.add('hidden'), 2000);
+
+            try {
+                if (type === 'mermaid' || type === 'unknown') {
+                    // Mermaidとしてのレンダリングを試行
+                    previewContent.innerHTML = ''; // 一旦クリア
+                    const id = `mermaid-${Date.now()}`;
+                    const { svg } = await mermaid.render(id, content);
+                    previewContent.innerHTML = svg;
+                    
+                    // レンダリングされたSVGの最大幅を制限（見やすくするため）
+                    const svgElem = previewContent.querySelector('svg');
+                    if(svgElem) {
+                        svgElem.style.maxWidth = '100%';
+                        svgElem.style.height = 'auto';
+                    }
+                } else {
+                    // SVG または HTML の場合
+                    previewContent.innerHTML = content;
+                }
+
+                // 描画完了後にPanzoomを初期化
+                setTimeout(initPanzoom, 50);
+
+                // MermaidまたはSVGの場合のみダウンロードボタンを表示
+                if (type === 'mermaid' || type === 'svg') {
+                    // 少し遅らせてSVG要素が確実にDOMにある状態にする
+                    setTimeout(() => {
+                        const svgElem = previewContent.querySelector('svg');
+                        if (svgElem) {
+                            downloadSvgBtn.classList.remove('hidden');
+                        }
+                    }, 100);
+                }
+
+            } catch (error) {
+                // エラー表示
+                previewContent.innerHTML = `
+                    <div class="bg-red-50 text-red-600 p-4 border border-red-200 rounded max-w-lg shadow-sm">
+                        <h3 class="font-bold flex items-center gap-2 mb-2">
+                            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            レンダリングエラー
+                        </h3>
+                        <pre class="text-xs whitespace-pre-wrap font-mono">${error.message || error}</pre>
+                    </div>`;
+                if (pzInstance) pzInstance.dispose();
+            }
+        }
+
+        // 入力イベント（デバウンス処理付き：入力が止まってから500ms後に描画）
+        codeInput.addEventListener('input', (e) => {
+            clearTimeout(renderTimeout);
+            renderTimeout = setTimeout(() => {
+                renderPreview(e.target.value);
+            }, 500);
+        });
+
+        // クリアボタン
+        clearBtn.addEventListener('click', () => {
+            codeInput.value = '';
+            renderPreview('');
+            codeInput.focus();
+        });
+
+        // SVGダウンロード処理
+        downloadSvgBtn.addEventListener('click', () => {
+            const svgElem = previewContent.querySelector('svg');
+            if (!svgElem) return;
+
+            // クローンを作成して元の描画に影響を与えずに処理
+            const svgClone = svgElem.cloneNode(true);
+            
+            // XML名前空間が含まれていない場合は追加（外部ファイルとして開くための要件）
+            if (!svgClone.getAttribute('xmlns')) {
+                svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            }
+
+            // Panzoomによる拡大縮小などのスタイルが親要素ではなくSVG自体にかかっている場合を考慮し、
+            // 余計なstyle属性をリセットする（純粋なSVGを出力するため）
+            svgClone.removeAttribute('style');
+            if (svgClone.hasAttribute('width') && svgClone.getAttribute('width').includes('%')) {
+                // Tailwind等で設定された width="100%" などを除去して本来のサイズで保存
+                svgClone.removeAttribute('width');
+                svgClone.removeAttribute('height');
+            }
+
+            // SVGを文字列に変換
+            const svgData = new XMLSerializer().serializeToString(svgClone);
+            
+            // Blobを作成してダウンロードリンクを生成
+            const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `diagram_${new Date().getTime()}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // 初期状態でフォーカス
+        codeInput.focus();
+    </script>
+</body>
+</html>
