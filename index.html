@@ -103,19 +103,19 @@
         <!-- コントロールボタン -->
         <div class="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
             <button id="zoom-in-btn" class="bg-white p-2 rounded-full shadow border border-gray-200 hover:bg-gray-50 text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
             <button id="zoom-reset-btn" class="bg-white p-2 rounded-full shadow border border-gray-200 hover:bg-gray-50 text-gray-700" title="リセット">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
             </button>
             <button id="zoom-out-btn" class="bg-white p-2 rounded-full shadow border border-gray-200 hover:bg-gray-50 text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
         </div>
 
         <!-- ダウンロードボタン (初期状態は非表示) -->
         <button id="download-svg-btn" class="absolute bottom-4 right-20 z-20 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 flex items-center gap-2 hidden transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             SVG保存
         </button>
 
@@ -185,7 +185,8 @@
 
         // テキストのフォーマットを判別するロジック
         function detectFormatAndClean(text) {
-            let content = text.trim();
+            // ノーブレークスペース(U+00A0)などの特殊スペースを通常の半角スペースに置換
+            let content = text.replace(/[\u00A0\u200B-\u200D\uFEFF]/g, ' ').trim();
             if (!content) return { type: 'empty', content: '' };
 
             // Markdownのコードブロック記法 (```mermaid ... ``` など) を除去
@@ -320,7 +321,7 @@
             
             // XML名前空間が含まれていない場合は追加（外部ファイルとして開くための要件）
             if (!svgClone.getAttribute('xmlns')) {
-                svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                svgClone.setAttribute('xmlns', '[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)');
             }
 
             // Panzoomによる拡大縮小などのスタイルが親要素ではなくSVG自体にかかっている場合を考慮し、
